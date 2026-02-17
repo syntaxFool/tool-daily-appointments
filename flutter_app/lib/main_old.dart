@@ -5,18 +5,26 @@ import 'package:csv/csv.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-
-import 'constants/app_constants.dart';
-import 'models/data_models.dart';
-import 'services/api_client.dart';
-import 'services/cache_service.dart';
-import 'utils/report_utils.dart';
-import 'widgets/common_widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const StylistReportsApp());
 }
+
+const String apiBaseUrl =
+    'https://script.google.com/macros/s/AKfycbxt1nLwXMzv0hf4oyf90TkDg8zxM_GzeGOkXIcc297aC2b2ygvFmoT0hC2XgTYkD3fy/exec';
+
+const String _cacheStylistsKey = 'cache_stylists';
+const String _cacheReportsKey = 'cache_reports';
+const String _cacheLastSyncKey = 'cache_last_sync';
+const String _filterMonthKey = 'filter_month';
+const String _filterStartKey = 'filter_start';
+const String _filterEndKey = 'filter_end';
+const String _filterSearchKey = 'filter_search';
+const String _filterSortIndexKey = 'filter_sort_index';
+const String _filterSortAscKey = 'filter_sort_asc';
 
 class StylistReportsApp extends StatelessWidget {
   const StylistReportsApp({super.key});
@@ -24,12 +32,12 @@ class StylistReportsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(primaryColorSeed),
+      seedColor: const Color(0xFF0F766E),
       brightness: Brightness.light,
     );
 
     return MaterialApp(
-      title: appTitle,
+      title: 'DATool',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -37,18 +45,16 @@ class StylistReportsApp extends StatelessWidget {
         textTheme: GoogleFonts.spaceGroteskTextTheme(),
         inputDecorationTheme: InputDecorationTheme(
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(borderRadius),
+            borderRadius: BorderRadius.circular(14),
           ),
           filled: true,
           fillColor: Colors.white,
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(borderRadius),
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
         ),
       ),
@@ -65,11 +71,10 @@ class StylistHomePage extends StatefulWidget {
 }
 
 class _StylistHomePageState extends State<StylistHomePage> {
-  late final ApiClient _apiClient;
-  late final CacheService _cacheService;
-  late final TextEditingController _tokenController;
-  late final TextEditingController _searchController;
-  late final FocusNode _tokenFocus;
+  final ApiClient _apiClient = ApiClient();
+  final TextEditingController _tokenController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _tokenFocus = FocusNode();
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -89,21 +94,94 @@ class _StylistHomePageState extends State<StylistHomePage> {
   bool _isRefreshing = false;
 
   @override
-  void initState() {
-    super.initState();
-    _apiClient = ApiClient();
-    _cacheService = CacheService();
-    _tokenController = TextEditingController();
-    _searchController = TextEditingController();
-    _tokenFocus = FocusNode();
-  }
-
-  @override
   void dispose() {
     _tokenController.dispose();
     _searchController.dispose();
     _tokenFocus.dispose();
     super.dispose();
+  }
+
+  Future<CachedPayload?> _loadCachedPayload() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stylistsRaw = prefs.getString(_cacheStylistsKey);
+    final reportsRaw = prefs.getString(_cacheReportsKey);
+    if (stylistsRaw == null || reportsRaw == null) {
+      return null;
+    }
+
+    try {
+      final stylistsJson = jsonDecode(stylistsRaw) as List<dynamic>;
+      final reportsJson = jsonDecode(reportsRaw) as List<dynamic>;
+      final stylists = stylistsJson
+          .map((item) => Stylist.fromJson(item as Map<String, dynamic>))
+          .toList();
+      final reports = reportsJson
+          .map((item) => Report.fromJson(item as Map<String, dynamic>))
+          .toList();
+      final lastSyncRaw = prefs.getString(_cacheLastSyncKey);
+      final lastSync =
+          lastSyncRaw == null ? null : DateTime.tryParse(lastSyncRaw);
+      return CachedPayload(
+        stylists: stylists,
+        reports: reports,
+        lastSync: lastSync,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveCache({
+    required List<Stylist> stylists,
+    required List<Report> reports,
+    required DateTime lastSync,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _cacheStylistsKey,
+      jsonEncode(stylists.map((item) => item.toJson()).toList()),
+    );
+    await prefs.setString(
+      _cacheReportsKey,
+      jsonEncode(reports.map((item) => item.toJson()).toList()),
+    );
+    await prefs.setString(_cacheLastSyncKey, lastSync.toIso8601String());
+  }
+
+  Future<void> _loadFilterState() async {
+    final prefs = await SharedPreferences.getInstance();
+    _selectedMonth = prefs.getString(_filterMonthKey);
+    _startDate = _parseStoredDate(prefs.getString(_filterStartKey));
+    _endDate = _parseStoredDate(prefs.getString(_filterEndKey));
+    _searchQuery = prefs.getString(_filterSearchKey) ?? '';
+    _searchController.text = _searchQuery;
+    _sortColumnIndex = prefs.getInt(_filterSortIndexKey) ?? 0;
+    _sortAscending = prefs.getBool(_filterSortAscKey) ?? true;
+    if (_selectedMonth != null && !_availableMonths.contains(_selectedMonth)) {
+      _selectedMonth = null;
+    }
+  }
+
+  Future<void> _persistFilterState() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_selectedMonth == null) {
+      await prefs.remove(_filterMonthKey);
+    } else {
+      await prefs.setString(_filterMonthKey, _selectedMonth!);
+    }
+    if (_startDate == null) {
+      await prefs.remove(_filterStartKey);
+    } else {
+      await prefs.setString(_filterStartKey, _startDate!.toIso8601String());
+    }
+    if (_endDate == null) {
+      await prefs.remove(_filterEndKey);
+    } else {
+      await prefs.setString(_filterEndKey, _endDate!.toIso8601String());
+    }
+    await prefs.setString(_filterSearchKey, _searchQuery);
+    await prefs.setInt(_filterSortIndexKey, _sortColumnIndex);
+    await prefs.setBool(_filterSortAscKey, _sortAscending);
   }
 
   Future<void> _login() async {
@@ -121,7 +199,7 @@ class _StylistHomePageState extends State<StylistHomePage> {
       _lastErrorDetail = null;
     });
 
-    final cached = await _cacheService.loadCachedPayload();
+    final cached = await _loadCachedPayload();
     var usedCache = false;
 
     if (cached != null) {
@@ -143,7 +221,7 @@ class _StylistHomePageState extends State<StylistHomePage> {
           _stylistName = cachedStylist.name;
           _token = token;
           _allReports = cachedReports;
-          _availableMonths = buildMonthOptions(cachedReports);
+          _availableMonths = _buildMonthOptions(cachedReports);
           _filteredReports = List.from(cachedReports);
           _lastSync = cached.lastSync;
           _isLoading = false;
@@ -197,7 +275,7 @@ class _StylistHomePageState extends State<StylistHomePage> {
           .toList();
 
       final now = DateTime.now();
-      await _cacheService.saveCache(
+      await _saveCache(
         stylists: stylists,
         reports: reports,
         lastSync: now,
@@ -211,9 +289,8 @@ class _StylistHomePageState extends State<StylistHomePage> {
         _stylistName = stylist.name;
         _token = token;
         _allReports = stylistReports;
-        _availableMonths = buildMonthOptions(stylistReports);
-        if (_selectedMonth != null &&
-            !_availableMonths.contains(_selectedMonth)) {
+        _availableMonths = _buildMonthOptions(stylistReports);
+        if (_selectedMonth != null && !_availableMonths.contains(_selectedMonth)) {
           _selectedMonth = null;
         }
         _lastSync = now;
@@ -276,14 +353,56 @@ class _StylistHomePageState extends State<StylistHomePage> {
     _applyFilters();
   }
 
+  Future<void> _pickDate({required bool isStart}) async {
+    final initialDate = isStart
+        ? (_startDate ?? DateTime.now())
+        : (_endDate ?? _startDate ?? DateTime.now());
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2015),
+      lastDate: DateTime(2035),
+    );
+
+    if (picked == null) {
+      return;
+    }
+
+    setState(() {
+      if (isStart) {
+        _startDate = picked;
+        if (_endDate != null && _endDate!.isBefore(picked)) {
+          _endDate = picked;
+        }
+      } else {
+        _endDate = picked;
+        if (_startDate != null && _startDate!.isAfter(picked)) {
+          _startDate = picked;
+        }
+      }
+      if (_startDate != null || _endDate != null) {
+        _selectedMonth = null;
+      }
+    });
+    _applyFilters();
+  }
+
+  void _clearDateFilters() {
+    setState(() {
+      _startDate = null;
+      _endDate = null;
+    });
+    _applyFilters();
+  }
+
   Future<void> _pickDateRange() async {
     final initialRange = _startDate != null && _endDate != null
         ? DateTimeRange(start: _startDate!, end: _endDate!)
         : null;
     final picked = await showDateRangePicker(
       context: context,
-      firstDate: DateTime(minYear),
-      lastDate: DateTime(maxYear),
+      firstDate: DateTime(2015),
+      lastDate: DateTime(2035),
       initialDateRange: initialRange,
     );
 
@@ -311,6 +430,53 @@ class _StylistHomePageState extends State<StylistHomePage> {
       return;
     }
     await _syncFromApi(_token!, isBackground: true);
+  }
+
+  List<Report> _sortReports(List<Report> reports) {
+    final sorted = List<Report>.from(reports);
+    sorted.sort((a, b) {
+      int result;
+      switch (_sortColumnIndex) {
+        case 0:
+          final aDate = a.dateValue ?? DateTime(1900);
+          final bDate = b.dateValue ?? DateTime(1900);
+          result = aDate.compareTo(bDate);
+          break;
+        case 1:
+          result = a.invoiceNumber.compareTo(b.invoiceNumber);
+          break;
+        case 2:
+          result = a.stylist.compareTo(b.stylist);
+          break;
+        case 3:
+          result = a.customerName.compareTo(b.customerName);
+          break;
+        case 4:
+          result = a.amount.compareTo(b.amount);
+          break;
+        case 5:
+          result = a.invoiceTotal.compareTo(b.invoiceTotal);
+          break;
+        default:
+          result = 0;
+      }
+      return _sortAscending ? result : -result;
+    });
+    return sorted;
+  }
+
+  String _formatDateRangeLabel() {
+    final formatter = DateFormat('MMM d');
+    if (_startDate == null && _endDate == null) {
+      return 'Date range';
+    }
+    if (_startDate != null && _endDate != null) {
+      return '${formatter.format(_startDate!)} - ${formatter.format(_endDate!)}';
+    }
+    if (_startDate != null) {
+      return 'From ${formatter.format(_startDate!)}';
+    }
+    return 'To ${formatter.format(_endDate!)}';
   }
 
   void _applyFilters() {
@@ -355,64 +521,6 @@ class _StylistHomePageState extends State<StylistHomePage> {
     _persistFilterState();
   }
 
-  List<Report> _sortReports(List<Report> reports) {
-    final sorted = List<Report>.from(reports);
-    sorted.sort((a, b) {
-      int result;
-      switch (_sortColumnIndex) {
-        case 0:
-          final aDate = a.dateValue ?? DateTime(minYear);
-          final bDate = b.dateValue ?? DateTime(minYear);
-          result = aDate.compareTo(bDate);
-          break;
-        case 1:
-          result = a.invoiceNumber.compareTo(b.invoiceNumber);
-          break;
-        case 2:
-          result = a.stylist.compareTo(b.stylist);
-          break;
-        case 3:
-          result = a.customerName.compareTo(b.customerName);
-          break;
-        case 4:
-          result = a.amount.compareTo(b.amount);
-          break;
-        case 5:
-          result = a.invoiceTotal.compareTo(b.invoiceTotal);
-          break;
-        default:
-          result = 0;
-      }
-      return _sortAscending ? result : -result;
-    });
-    return sorted;
-  }
-
-  Future<void> _loadFilterState() async {
-    final state = await _cacheService.loadFilterState(_availableMonths);
-    setState(() {
-      _selectedMonth = state.selectedMonth;
-      _startDate = state.startDate;
-      _endDate = state.endDate;
-      _searchQuery = state.searchQuery;
-      _searchController.text = _searchQuery;
-      _sortColumnIndex = state.sortColumnIndex;
-      _sortAscending = state.sortAscending;
-    });
-  }
-
-  Future<void> _persistFilterState() async {
-    final state = FilterState(
-      selectedMonth: _selectedMonth,
-      startDate: _startDate,
-      endDate: _endDate,
-      searchQuery: _searchQuery,
-      sortColumnIndex: _sortColumnIndex,
-      sortAscending: _sortAscending,
-    );
-    await _cacheService.persistFilterState(state);
-  }
-
   Future<void> _exportCsv() async {
     if (_filteredReports.isEmpty) {
       setState(() {
@@ -455,12 +563,18 @@ class _StylistHomePageState extends State<StylistHomePage> {
     );
   }
 
-  void _clearDateFilters() {
-    setState(() {
-      _startDate = null;
-      _endDate = null;
+  List<String> _buildMonthOptions(List<Report> reports) {
+    final months = reports
+        .map((report) => report.monthLabel)
+        .whereType<String>()
+        .toSet()
+        .toList();
+    months.sort((a, b) {
+      final aDate = DateFormat('MMMM yyyy').parse(a);
+      final bDate = DateFormat('MMMM yyyy').parse(b);
+      return bDate.compareTo(aDate);
     });
-    _applyFilters();
+    return months;
   }
 
   @override
@@ -476,36 +590,28 @@ class _StylistHomePageState extends State<StylistHomePage> {
         ),
         child: Stack(
           children: [
-            Positioned(
+            const Positioned(
               top: -120,
               left: -80,
-              child: Orb(
-                color: const Color(orbYellow),
-                size: orbSize,
-              ),
+              child: _Orb(color: Color(0xFFF2C572), size: 220),
             ),
-            Positioned(
+            const Positioned(
               bottom: -140,
               right: -60,
-              child: Orb(
-                color: const Color(orbTeal),
-                size: orbSizeL,
-              ),
+              child: _Orb(color: Color(0xFF6BD3C5), size: 260),
             ),
             SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final isCompact =
-                      constraints.maxWidth < compactLayoutWidthThreshold;
+                  final isCompact = constraints.maxWidth < 600;
                   return SingleChildScrollView(
                     padding: EdgeInsets.symmetric(
                       horizontal: isCompact ? 16 : 28,
                       vertical: isCompact ? 20 : 28,
                     ),
                     child: Align(
-                      alignment: isCompact
-                          ? Alignment.topCenter
-                          : Alignment.center,
+                      alignment:
+                          isCompact ? Alignment.topCenter : Alignment.center,
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 350),
                         child: _stylistName == null
@@ -530,11 +636,9 @@ class _StylistHomePageState extends State<StylistHomePage> {
       child: Card(
         elevation: 10,
         shadowColor: Colors.black26,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(largeRadius),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Padding(
-          padding: EdgeInsets.all(isCompact ? compactPadding : defaultPadding),
+          padding: EdgeInsets.all(isCompact ? 20 : 28),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -544,11 +648,10 @@ class _StylistHomePageState extends State<StylistHomePage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(primaryColorSeed),
+                      color: const Color(0xFF0F766E),
                       borderRadius: BorderRadius.circular(18),
                     ),
-                    child: const Icon(Icons.bar_chart,
-                        color: Colors.white),
+                    child: const Icon(Icons.bar_chart, color: Colors.white),
                   ),
                   const SizedBox(width: 14),
                   Column(
@@ -575,7 +678,7 @@ class _StylistHomePageState extends State<StylistHomePage> {
               ),
               const SizedBox(height: 24),
               if (_errorMessage != null)
-                MessageBanner(
+                _MessageBanner(
                   text: _errorMessage!,
                   detail: _lastErrorDetail,
                   tone: MessageTone.error,
@@ -620,12 +723,9 @@ class _StylistHomePageState extends State<StylistHomePage> {
         child: Card(
           elevation: 12,
           shadowColor: Colors.black26,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(extraphoneRadius),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
           child: Padding(
-            padding: EdgeInsets.all(
-                isCompact ? compactPadding : defaultPadding),
+            padding: EdgeInsets.all(isCompact ? 18 : 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -666,8 +766,7 @@ class _StylistHomePageState extends State<StylistHomePage> {
                         children: [
                           Expanded(
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   'Welcome, $_stylistName',
@@ -713,8 +812,9 @@ class _StylistHomePageState extends State<StylistHomePage> {
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String?>(
                         value: _selectedMonth,
-                        decoration:
-                            const InputDecoration(labelText: 'Month'),
+                        decoration: const InputDecoration(
+                          labelText: 'Month',
+                        ),
                         items: [
                           const DropdownMenuItem<String?>(
                             value: null,
@@ -731,13 +831,10 @@ class _StylistHomePageState extends State<StylistHomePage> {
                       ),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
-                        onPressed: _selectedMonth != null
-                            ? null
-                            : _pickDateRange,
+                        onPressed:
+                            _selectedMonth != null ? null : _pickDateRange,
                         icon: const Icon(Icons.date_range),
-                        label: Text(
-                          formatDateRangeLabel(_startDate, _endDate),
-                        ),
+                        label: Text(_formatDateRangeLabel()),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
@@ -761,7 +858,7 @@ class _StylistHomePageState extends State<StylistHomePage> {
                         icon: const Icon(Icons.download),
                         label: const Text('Export CSV'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(primaryColorSeed),
+                          backgroundColor: const Color(0xFF0F766E),
                           foregroundColor: Colors.white,
                         ),
                       ),
@@ -778,7 +875,7 @@ class _StylistHomePageState extends State<StylistHomePage> {
                           controller: _searchController,
                           decoration: const InputDecoration(
                             labelText: 'Search',
-                            hintText: 'Customer or invoice',
+                            hintText: 'Customer or invoice number',
                             prefixIcon: Icon(Icons.search),
                           ),
                           onChanged: _updateSearch,
@@ -788,8 +885,9 @@ class _StylistHomePageState extends State<StylistHomePage> {
                         width: 220,
                         child: DropdownButtonFormField<String?>(
                           value: _selectedMonth,
-                          decoration:
-                              const InputDecoration(labelText: 'Month'),
+                          decoration: const InputDecoration(
+                            labelText: 'Month',
+                          ),
                           items: [
                             const DropdownMenuItem<String?>(
                               value: null,
@@ -805,19 +903,19 @@ class _StylistHomePageState extends State<StylistHomePage> {
                           onChanged: _applyMonthFilter,
                         ),
                       ),
-                      DateButton(
+                      _DateButton(
                         label: 'From',
                         date: _startDate,
                         onPressed: _selectedMonth != null
                             ? null
-                            : () => _pickDateRange(),
+                            : () => _pickDate(isStart: true),
                       ),
-                      DateButton(
+                      _DateButton(
                         label: 'To',
                         date: _endDate,
                         onPressed: _selectedMonth != null
                             ? null
-                            : () => _pickDateRange(),
+                            : () => _pickDate(isStart: false),
                       ),
                       if (_startDate != null || _endDate != null)
                         TextButton(
@@ -829,7 +927,7 @@ class _StylistHomePageState extends State<StylistHomePage> {
                         icon: const Icon(Icons.download),
                         label: const Text('Export CSV'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(primaryColorSeed),
+                          backgroundColor: const Color(0xFF0F766E),
                           foregroundColor: Colors.white,
                         ),
                       ),
@@ -839,7 +937,7 @@ class _StylistHomePageState extends State<StylistHomePage> {
                 _buildSummaryTiles(context, isCompact),
                 const SizedBox(height: 16),
                 if (_errorMessage != null)
-                  MessageBanner(
+                  _MessageBanner(
                     text: _errorMessage!,
                     detail: _lastErrorDetail,
                     tone: MessageTone.error,
@@ -851,101 +949,6 @@ class _StylistHomePageState extends State<StylistHomePage> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildSummaryTiles(BuildContext context, bool isCompact) {
-    final summary = calculateSummary(_filteredReports);
-
-    if (isCompact) {
-      return Column(
-        children: [
-          SizedBox(
-            width: double.infinity,
-            child: SummaryTile(
-              label: 'Count',
-              value: summary.count.toString(),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: SummaryTile(
-              label: 'Amount',
-              value: summary.totalAmount.toStringAsFixed(2),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: SummaryTile(
-              label: 'Invoice Total',
-              value: summary.totalInvoiceAmount.toStringAsFixed(2),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        SizedBox(
-          width: 190,
-          child: SummaryTile(
-            label: 'Count',
-            value: summary.count.toString(),
-          ),
-        ),
-        SizedBox(
-          width: 190,
-          child: SummaryTile(
-            label: 'Amount',
-            value: summary.totalAmount.toStringAsFixed(2),
-          ),
-        ),
-        SizedBox(
-          width: 190,
-          child: SummaryTile(
-            label: 'Invoice Total',
-            value: summary.totalInvoiceAmount.toStringAsFixed(2),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSyncStatus(BuildContext context) {
-    final label = _lastSync == null
-        ? 'Last sync: never'
-        : 'Last sync: ${DateFormat('MMM d, yyyy HH:mm').format(_lastSync!)}';
-
-    return Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(color: Colors.black54),
-        ),
-        if (_isRefreshing)
-          const SizedBox(
-            height: 16,
-            width: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        if (_lastErrorDetail != null && _lastErrorDetail!.isNotEmpty)
-          TextButton.icon(
-            onPressed: _retrySync,
-            icon: const Icon(Icons.refresh, size: 18),
-            label: const Text('Retry sync'),
-          ),
-      ],
     );
   }
 
@@ -969,8 +972,7 @@ class _StylistHomePageState extends State<StylistHomePage> {
         ),
         child: Column(
           children: [
-            const Icon(Icons.inbox_outlined,
-                size: 42, color: Colors.black38),
+            const Icon(Icons.inbox_outlined, size: 42, color: Colors.black38),
             const SizedBox(height: 12),
             Text(
               'No reports found for this period.',
@@ -1021,13 +1023,13 @@ class _StylistHomePageState extends State<StylistHomePage> {
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 6),
-                          InfoRow(label: 'Invoice', value: report.invoiceNumber),
-                          InfoRow(label: 'Date', value: report.formattedDate),
-                          InfoRow(
+                          _InfoRow(label: 'Invoice', value: report.invoiceNumber),
+                          _InfoRow(label: 'Date', value: report.formattedDate),
+                          _InfoRow(
                             label: 'Amount',
                             value: report.amount.toStringAsFixed(2),
                           ),
-                          InfoRow(
+                          _InfoRow(
                             label: 'Invoice Total',
                             value: report.invoiceTotal.toStringAsFixed(2),
                           ),
@@ -1067,8 +1069,7 @@ class _StylistHomePageState extends State<StylistHomePage> {
                           DataCell(Text(report.stylist)),
                           DataCell(Text(report.customerName)),
                           DataCell(Text(report.amount.toStringAsFixed(2))),
-                          DataCell(
-                              Text(report.invoiceTotal.toStringAsFixed(2))),
+                          DataCell(Text(report.invoiceTotal.toStringAsFixed(2))),
                         ],
                       ),
                     )
@@ -1077,4 +1078,451 @@ class _StylistHomePageState extends State<StylistHomePage> {
             ),
     );
   }
+
+  Widget _buildSummaryTiles(BuildContext context, bool isCompact) {
+    final count = _filteredReports.length;
+    final totalAmount = _filteredReports.fold<double>(
+      0,
+      (sum, report) => sum + report.amount,
+    );
+    final totalInvoice = _filteredReports.fold<double>(
+      0,
+      (sum, report) => sum + report.invoiceTotal,
+    );
+
+    if (isCompact) {
+      return Column(
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: _SummaryTile(
+              label: 'Count',
+              value: count.toString(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: _SummaryTile(
+              label: 'Amount',
+              value: totalAmount.toStringAsFixed(2),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: _SummaryTile(
+              label: 'Invoice Total',
+              value: totalInvoice.toStringAsFixed(2),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        SizedBox(
+          width: 190,
+          child: _SummaryTile(
+            label: 'Count',
+            value: count.toString(),
+          ),
+        ),
+        SizedBox(
+          width: 190,
+          child: _SummaryTile(
+            label: 'Amount',
+            value: totalAmount.toStringAsFixed(2),
+          ),
+        ),
+        SizedBox(
+          width: 190,
+          child: _SummaryTile(
+            label: 'Invoice Total',
+            value: totalInvoice.toStringAsFixed(2),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSyncStatus(BuildContext context) {
+    final label = _lastSync == null
+        ? 'Last sync: never'
+        : 'Last sync: ${DateFormat('MMM d, yyyy HH:mm').format(_lastSync!)}';
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: Colors.black54),
+        ),
+        if (_isRefreshing)
+          const SizedBox(
+            height: 16,
+            width: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        if (_lastErrorDetail != null && _lastErrorDetail!.isNotEmpty)
+          TextButton.icon(
+            onPressed: _retrySync,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Retry sync'),
+          ),
+      ],
+    );
+  }
+}
+
+class _SummaryTile extends StatelessWidget {
+  const _SummaryTile({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE4E4E4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: Colors.black54),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(
+              label,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: Colors.black54),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DateButton extends StatelessWidget {
+  const _DateButton({
+    required this.label,
+    required this.date,
+    required this.onPressed,
+  });
+
+  final String label;
+  final DateTime? date;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = date == null ? label : DateFormat('yyyy-MM-dd').format(date!);
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.calendar_today),
+      label: Text(text),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      ),
+    );
+  }
+}
+
+class _MessageBanner extends StatelessWidget {
+  const _MessageBanner({
+    required this.text,
+    required this.tone,
+    this.detail,
+  });
+
+  final String text;
+  final String? detail;
+  final MessageTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final background = switch (tone) {
+      MessageTone.error => const Color(0xFFFFE5E5),
+      MessageTone.info => const Color(0xFFE6F7F3),
+    };
+    final foreground = switch (tone) {
+      MessageTone.error => const Color(0xFFB42318),
+      MessageTone.info => const Color(0xFF0F766E),
+    };
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            tone == MessageTone.error ? Icons.error_outline : Icons.info_outline,
+            color: foreground,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  text,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: foreground),
+                ),
+                if (detail != null && detail!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      detail!,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: foreground.withOpacity(0.8)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Orb extends StatelessWidget {
+  const _Orb({required this.color, required this.size});
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withOpacity(0.35),
+      ),
+    );
+  }
+}
+
+enum MessageTone { error, info }
+
+class Stylist {
+  const Stylist({required this.name, required this.token});
+
+  final String name;
+  final String token;
+
+  factory Stylist.fromJson(Map<String, dynamic> json) {
+    return Stylist(
+      name: (json['name'] ?? '').toString(),
+      token: (json['token'] ?? '').toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'token': token,
+    };
+  }
+}
+
+class Report {
+  Report({
+    required this.rawDate,
+    required this.invoiceNumber,
+    required this.stylist,
+    required this.customerName,
+    required this.amount,
+    required this.invoiceTotal,
+  }) {
+    dateValue = _parseDate(rawDate);
+    monthLabel = dateValue == null
+        ? null
+        : DateFormat('MMMM yyyy').format(dateValue!);
+  }
+
+  final String rawDate;
+  final String invoiceNumber;
+  final String stylist;
+  final String customerName;
+  final double amount;
+  final double invoiceTotal;
+  DateTime? dateValue;
+  String? monthLabel;
+
+  String get formattedDate {
+    if (dateValue == null) {
+      return rawDate;
+    }
+    return DateFormat('yyyy-MM-dd').format(dateValue!);
+  }
+
+  factory Report.fromJson(Map<String, dynamic> json) {
+    return Report(
+      rawDate: (json['date'] ?? '').toString(),
+      invoiceNumber: (json['invoiceNumber'] ?? '').toString(),
+      stylist: (json['stylist'] ?? '').toString(),
+      customerName: (json['customerName'] ?? '').toString(),
+      amount: (json['amount'] as num?)?.toDouble() ?? 0,
+      invoiceTotal: (json['invoiceTotal'] as num?)?.toDouble() ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'date': rawDate,
+      'invoiceNumber': invoiceNumber,
+      'stylist': stylist,
+      'customerName': customerName,
+      'amount': amount,
+      'invoiceTotal': invoiceTotal,
+    };
+  }
+}
+
+class CachedPayload {
+  const CachedPayload({
+    required this.stylists,
+    required this.reports,
+    required this.lastSync,
+  });
+
+  final List<Stylist> stylists;
+  final List<Report> reports;
+  final DateTime? lastSync;
+}
+
+class ApiClient {
+  final http.Client _client = http.Client();
+
+  Future<List<Stylist>> fetchStylists() async {
+    final uri = Uri.parse(apiBaseUrl).replace(queryParameters: {
+      'action': 'stylists',
+    });
+    final response = await _client.get(uri);
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch stylists');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (data['success'] != true) {
+      throw Exception(data['error'] ?? 'Stylists unavailable');
+    }
+    final list = (data['stylists'] as List<dynamic>? ?? [])
+        .cast<Map<String, dynamic>>();
+    return list.map(Stylist.fromJson).toList();
+  }
+
+  Future<List<Report>> fetchReports() async {
+    final uri = Uri.parse(apiBaseUrl).replace(queryParameters: {
+      'action': 'reports',
+    });
+    final response = await _client.get(uri);
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch reports');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (data['success'] != true) {
+      throw Exception(data['error'] ?? 'Reports unavailable');
+    }
+    final list = (data['reports'] as List<dynamic>? ?? [])
+        .cast<Map<String, dynamic>>();
+    return list.map(Report.fromJson).toList();
+  }
+}
+
+DateTime? _parseDate(String raw) {
+  if (raw.isEmpty) {
+    return null;
+  }
+
+  final direct = DateTime.tryParse(raw);
+  if (direct != null) {
+    return direct;
+  }
+
+  final cleaned = raw.replaceFirst(RegExp(r'GMT.*$'), '').trim();
+  for (final format in [
+    DateFormat('EEE MMM dd yyyy HH:mm:ss'),
+    DateFormat('EEE MMM dd yyyy'),
+  ]) {
+    try {
+      return format.parse(cleaned);
+    } catch (_) {}
+  }
+
+  return null;
+}
+
+DateTime? _parseStoredDate(String? raw) {
+  if (raw == null || raw.isEmpty) {
+    return null;
+  }
+  return DateTime.tryParse(raw);
 }
