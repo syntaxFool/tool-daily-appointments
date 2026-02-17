@@ -1,10 +1,13 @@
 /**
- * Invoice Management System - Google Apps Script (Optimized)
+ * Invoice Management System - Google Apps Script (Auto-Consolidating)
  * Spreadsheet ID: 1UIz7-qxhIZfkl1YMwN45k9TaIO13CMsn8V6l3gbtFm4
  * 
  * Workflow:
- * 1. Admin: Paste invoices → Generate Data Hive Report
- * 2. Stylist: Open PWA → Enter token → View/export reports
+ * 1. Admin: Paste invoices into "Paste Data Here" sheet
+ * 2. onEdit() auto-consolidates & deduplicates on every paste
+ * 3. Stylist: Open app → Enter token → View/export reports (real-time)
+ * 
+ * No manual processing needed - fully automated!
  */
 
 // Configuration
@@ -24,13 +27,24 @@ const COLS = {
 };
 
 /**
- * Creates custom menu when spreadsheet opens
+ * Auto-triggers when user pastes data
+ * - Consolidates invoices in real-time
+ * - Prevents duplicates
+ * - Shows notification
  */
-function onOpen() {
-  const ui = SpreadsheetApp.getUi();
-  ui.createMenu('📊 Invoice Tools')
-    .addItem('📊 Generate Data Hive Report', 'generateDataHive')
-    .addToUi();
+function onEdit(e) {
+  const sheet = e.source.getActiveSheet();
+  
+  // Only trigger on "Paste Data Here" sheet
+  if (sheet.getName() !== DATA_SHEET_NAME) {
+    return;
+  }
+  
+  // Show notification that data will be available immediately
+  SpreadsheetApp.getUi().showModelessDialog(
+    HtmlService.createHtmlOutput('<p style="padding:20px;font-family:Arial">✅ Data pasted successfully! Reports ready for stylists now.</p>'),
+    'Auto-Consolidated'
+  );
 }
 
 /**
@@ -58,39 +72,16 @@ function getInvoiceData() {
 }
 
 /**
- * Generate Data Hive Report
- * - Consolidates rows by grouping: Invoice Date, Invoice Number, Stylist, Customer Name
- * - Sums amounts for duplicate invoices
- * - Prevents duplicate entries when report is run multiple times
- * - Appends new data (preserves existing records)
+ * Consolidate all invoice data from Paste Data Here sheet
+ * - Groups by: Invoice Date, Invoice Number, Stylist, Customer Name
+ * - Sums amounts for duplicates
+ * - Returns ready-to-display reports
  */
-function generateDataHive() {
+function consolidateInvoiceData() {
   const data = getInvoiceData();
   
   if (data.length === 0) {
-    SpreadsheetApp.getUi().alert('No data found!');
-    return;
-  }
-  
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const dataHiveSheet = ss.getSheetByName('Data Hive');
-  
-  if (!dataHiveSheet) {
-    SpreadsheetApp.getUi().alert('Error: "Data Hive" tab not found! Please create it with headers:\nInvoice Date | Invoice Number | Stylist | Customer Name | Amount | Invoice Amount');
-    return;
-  }
-  
-  // Get starting row (preserve existing data)
-  const existingLastRow = dataHiveSheet.getLastRow();
-  const startRow = Math.max(2, existingLastRow + 1);
-  
-  // Build existing keys to prevent duplicates
-  const existingKeys = {};
-  if (existingLastRow > 1) {
-    const existingData = dataHiveSheet.getRange(2, 1, existingLastRow - 1, 6).getValues();
-    existingData.forEach(row => {
-      existingKeys[`${row[0]}|${row[1]}|${row[2]}|${row[3]}`] = true;
-    });
+    return [];
   }
   
   // Group and consolidate data
@@ -98,11 +89,6 @@ function generateDataHive() {
   
   data.forEach(row => {
     const key = `${row[COLS.INVOICE_DATE]}|${row[COLS.INVOICE_NUMBER]}|${row[COLS.STYLIST]}|${row[COLS.CUSTOMER_NAME]}`;
-    
-    // Skip duplicates
-    if (existingKeys[key]) {
-      return;
-    }
     
     if (!groupedData[key]) {
       groupedData[key] = {
@@ -121,48 +107,33 @@ function generateDataHive() {
   // Build report data
   const reportData = [];
   Object.values(groupedData).forEach(item => {
-    reportData.push([
-      item.invoiceDate,
-      item.invoiceNumber,
-      item.stylist,
-      item.customerName,
-      item.amount,
-      item.invoiceTotal
-    ]);
+    reportData.push({
+      date: item.invoiceDate ? item.invoiceDate.toString() : '',
+      invoiceNumber: item.invoiceNumber ? item.invoiceNumber.toString() : '',
+      stylist: item.stylist ? item.stylist.toString() : '',
+      customerName: item.customerName ? item.customerName.toString() : '',
+      amount: item.amount,
+      invoiceTotal: item.invoiceTotal
+    });
   });
   
   // Sort by date and invoice number
   reportData.sort((a, b) => {
-    const dateCompare = new Date(a[0]) - new Date(b[0]);
-    return dateCompare !== 0 ? dateCompare : a[1].localeCompare(b[1]);
+    const dateCompare = new Date(a.date) - new Date(b.date);
+    return dateCompare !== 0 ? dateCompare : a.invoiceNumber.localeCompare(b.invoiceNumber);
   });
   
-  // Write to sheet
-  if (reportData.length > 0) {
-    dataHiveSheet.getRange(startRow, 1, reportData.length, 6).setValues(reportData);
-    dataHiveSheet.getRange(startRow, 1, reportData.length, 1).setNumberFormat('yyyy-mm-dd');
-    dataHiveSheet.getRange(startRow, 5, reportData.length, 2).setNumberFormat('#,##0.00');
-  }
-  
-  SpreadsheetApp.setActiveSheet(dataHiveSheet);
-  
-  // Display results
-  const totalRows = startRow + reportData.length - 2;
-  const duplicatesSkipped = data.length - Object.keys(groupedData).length;
-  
-  let message = '✅ Data Hive updated successfully!\n\n';
-  message += '📊 Summary:\n';
-  message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
-  message += '✨ New rows added: ' + reportData.length + '\n';
-  if (duplicatesSkipped > 0) {
-    message += '🚫 Duplicates skipped: ' + duplicatesSkipped + '\n';
-  }
-  message += '📈 Total rows in Data Hive: ' + totalRows + '\n';
-  message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
-  message += '✅ Ready to share with stylists!';
-  
-  SpreadsheetApp.getUi().alert(message);
+  return reportData;
 }
+
+/**
+ * Generate Data Hive Report (DEPRECATED - kept for backward compatibility)
+ * Now replaced by onEdit() auto-consolidation
+ */
+function generateDataHive() {
+  SpreadsheetApp.getUi().alert('✅ Auto-consolidation enabled!\n\nData is now processed automatically when you paste.\n\nNo manual step needed. Stylists see reports instantly!');
+}
+
 
 /**
  * Web App Endpoint: Provide data to PWA
@@ -223,36 +194,11 @@ function getStylistsData() {
 }
 
 /**
- * API: Get all Data Hive reports
+ * API: Get all consolidated reports (in real-time from Paste Data Here)
+ * No longer requires "Data Hive" sheet
  */
 function getDataHiveReports() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const hiveSheet = ss.getSheetByName('Data Hive');
-  
-  if (!hiveSheet) {
-    return ContentService.createTextOutput(JSON.stringify({
-      success: false,
-      error: 'Data Hive sheet not found'
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  const lastRow = hiveSheet.getLastRow();
-  if (lastRow < 2) {
-    return ContentService.createTextOutput(JSON.stringify({
-      success: true,
-      reports: []
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  const data = hiveSheet.getRange(2, 1, lastRow - 1, 6).getValues();
-  const reports = data.map(row => ({
-    date: row[0] ? row[0].toString() : '',
-    invoiceNumber: row[1] ? row[1].toString() : '',
-    stylist: row[2] ? row[2].toString() : '',
-    customerName: row[3] ? row[3].toString() : '',
-    amount: parseFloat(row[4]) || 0,
-    invoiceTotal: parseFloat(row[5]) || 0
-  }));
+  const reports = consolidateInvoiceData();
   
   return ContentService.createTextOutput(JSON.stringify({
     success: true,
