@@ -640,41 +640,81 @@ class _StylistHomePageState extends State<StylistHomePage> {
                       width: 1,
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: defaultPadding,
-                    vertical: 16,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isCompact ? 12 : defaultPadding,
+                    vertical: 12,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Welcome, $_stylistName',
-                          style: GoogleFonts.playfairDisplay(
-                            fontSize: isCompact ? 22 : 26,
-                            fontWeight: FontWeight.w700,
-                          ),
+                  child: isCompact
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Welcome, $_stylistName',
+                                    style: GoogleFonts.playfairDisplay(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton.icon(
+                                  onPressed: _logout,
+                                  icon: const Icon(Icons.logout, size: 16),
+                                  label: const Text('Logout'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(primaryColorSeed),
+                                    foregroundColor: const Color(darkGray),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    textStyle: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            _buildSyncStatus(context),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Welcome, $_stylistName',
+                                style: GoogleFonts.playfairDisplay(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            _buildSyncStatus(context),
+                            const SizedBox(width: 16),
+                            ElevatedButton.icon(
+                              onPressed: _logout,
+                              icon: const Icon(Icons.logout),
+                              label: const Text('Logout'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(primaryColorSeed),
+                                foregroundColor: const Color(darkGray),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      _buildSyncStatus(context),
-                      const SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        onPressed: _logout,
-                        icon: const Icon(Icons.logout),
-                        label: const Text('Logout'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(primaryColorSeed),
-                          foregroundColor: const Color(darkGray),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
                 const SizedBox(height: 24),
                 _buildCollapsibleFilters(context, isCompact),
@@ -836,17 +876,22 @@ class _StylistHomePageState extends State<StylistHomePage> {
       case 2: // Date range
         return Column(
           children: [
-            OutlinedButton.icon(
+            ElevatedButton.icon(
               onPressed: _selectedMonth != null ? null : _pickDateRange,
               icon: const Icon(Icons.date_range),
               label: Text(
                 formatDateRangeLabel(_startDate, _endDate),
               ),
-              style: OutlinedButton.styleFrom(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _selectedMonth != null
+                    ? Colors.grey[300]
+                    : const Color(primaryColorSeed),
+                foregroundColor: const Color(darkGray),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
+                  horizontal: 16,
                   vertical: 14,
                 ),
+                minimumSize: const Size.fromHeight(50),
               ),
             ),
             if (_startDate != null || _endDate != null) ...[

@@ -263,56 +263,60 @@ class _FilterIconButtonState extends State<FilterIconButton>
       onExit: (_) => setState(() => _isHovering = false),
       child: GestureDetector(
         onTap: widget.onPressed,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            border: Border.all(
-              color:
-                  widget.isExpanded ? activeBorderColor : borderColor,
-              width: widget.isExpanded ? 2 : 1.5,
+        child: SizedBox(
+          height: 80,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              border: Border.all(
+                color:
+                    widget.isExpanded ? activeBorderColor : borderColor,
+                width: widget.isExpanded ? 2 : 1.5,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: _isHovering
+                  ? [
+                      BoxShadow(
+                        color: accentColor.withOpacity(0.15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : [],
             ),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: _isHovering
-                ? [
-                    BoxShadow(
-                      color: accentColor.withOpacity(0.15),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : [],
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedScale(
-                scale: _isHovering ? 1.1 : 1.0,
-                duration: const Duration(milliseconds: 200),
-                child: Icon(
-                  widget.icon,
-                  color: widget.isExpanded ? accentColor : const Color(darkGray),
-                  size: 28,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  widget.label,
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: widget.isExpanded
-                        ? accentColor
-                        : const Color(darkGray),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedScale(
+                  scale: _isHovering ? 1.1 : 1.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    widget.icon,
+                    color: widget.isExpanded ? accentColor : const Color(darkGray),
+                    size: 28,
                   ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    widget.label,
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: widget.isExpanded
+                          ? accentColor
+                          : const Color(darkGray),
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
