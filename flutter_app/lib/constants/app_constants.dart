@@ -19,14 +19,17 @@ const String filterSearchKey = 'filter_search';
 const String filterSortIndexKey = 'filter_sort_index';
 const String filterSortAscKey = 'filter_sort_asc';
 
-// Color Scheme
-const int primaryColorSeed = 0xFF0F766E;
+// Color Scheme - Updated Color Palette
+// Dark Gray | Gold Yellow | Light Gray
+const int primaryColorSeed = 0xFFF4C430;  // Gold Yellow
+const int darkGray = 0xFF333333;         // Dark Gray
+const int lightGray = 0xFFCCCCCC;        // Light Gray
 const int errorColorLight = 0xFFFFE5E5;
 const int errorColorDark = 0xFFB42318;
 const int infoColorLight = 0xFFE6F7F3;
-const int infoColorDark = 0xFF0F766E;
-const int orbYellow = 0xFFF2C572;
-const int orbTeal = 0xFF6BD3C5;
+const int infoColorDark = 0xFF333333;    // Dark Gray
+const int orbYellow = 0xFFF4C430;        // Gold
+const int orbTeal = 0xFF333333;          // Dark Gray
 
 // Responsive Breakpoints
 const double compactLayoutWidthThreshold = 600;

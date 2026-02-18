@@ -1,32 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
-  <!-- Background -->
-  <rect width="192" height="192" fill="#6366f1" rx="32"/>
+  <!-- Dark gray background -->
+  <rect width="192" height="192" fill="#333333"/>
   
-  <!-- Calendar shape -->
-  <rect x="32" y="50" width="128" height="110" fill="white" rx="8"/>
+  <!-- Gold calendar frame -->
+  <rect x="32" y="50" width="128" height="110" fill="#f4c430" rx="8"/>
   
-  <!-- Calendar header bars -->
-  <rect x="40" y="32" width="24" height="28" fill="#6366f1" rx="4"/>
-  <rect x="128" y="32" width="24" height="28" fill="#6366f1" rx="4"/>
+  <!-- Light gray calendar bars -->
+  <rect x="40" y="32" width="24" height="28" fill="#cccccc" rx="4"/>
+  <rect x="128" y="32" width="24" height="28" fill="#cccccc" rx="4"/>
   
-  <!-- Calendar top line -->
-  <line x1="32" y1="78" x2="160" y2="78" stroke="#e5e7eb" stroke-width="2"/>
+  <!-- Dark line divider -->
+  <line x1="32" y1="78" x2="160" y2="78" stroke="#333333" stroke-width="2"/>
   
-  <!-- Date grid -->
-  <g fill="#c7d2fe" font-size="20" font-weight="bold" text-anchor="middle" dominant-baseline="middle">
-    <!-- Week 1 -->
+  <!-- Date labels in dark -->
+  <g fill="#333333" font-size="20" font-weight="bold" text-anchor="middle" dominant-baseline="middle">
     <text x="50" y="100">M</text>
     <text x="96" y="100">W</text>
     <text x="142" y="100">F</text>
-    
-    <!-- Week 2 -->
     <text x="50" y="135">1</text>
     <text x="96" y="135">2</text>
     <text x="142" y="135">3</text>
-  </g>
-  
-  <!-- "D" for DATool overlay -->
-  <g fill="#6366f1" opacity="0.15">
-    <text x="96" y="155" font-size="64" font-weight="900" text-anchor="middle" dominant-baseline="middle">D</text>
   </g>
 </svg>
