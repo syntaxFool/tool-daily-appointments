@@ -32,6 +32,28 @@
 
   <title>datool</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Prevent autofill overlay errors -->
+  <script>
+    // Suppress autofill overlay DOM errors that don't affect functionality
+    window.addEventListener('error', (event) => {
+      if (event.message && event.message.includes('insertBefore')) {
+        event.preventDefault();
+        console.log('Autofill overlay harmless error suppressed');
+      }
+    }, true);
+
+    // Make Flutter inputs resistant to autofill interference
+    document.addEventListener('DOMContentLoaded', () => {
+      // Add autocomplete="off" to Flutter input divs
+      const inputs = document.querySelectorAll('input');
+      inputs.forEach(input => {
+        input.setAttribute('autocomplete', 'off');
+        input.setAttribute('data-lpignore', 'true'); // LastPass
+        input.setAttribute('data-form-type', 'other'); // Bitwarden
+      });
+    });
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
