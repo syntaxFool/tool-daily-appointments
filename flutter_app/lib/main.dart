@@ -641,24 +641,18 @@ class _StylistHomePageState extends State<StylistHomePage> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Token: ${_token ?? ''}',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(color: Colors.black54),
-                          ),
-                          const SizedBox(height: 8),
-                          _buildSyncStatus(context),
                           const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: OutlinedButton.icon(
-                              onPressed: _logout,
-                              icon: const Icon(Icons.logout),
-                              label: const Text('Logout'),
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildSyncStatus(context),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: _logout,
+                                icon: const Icon(Icons.logout),
+                                label: const Text('Logout'),
+                              ),
+                            ],
                           ),
                         ],
                       )
@@ -676,15 +670,7 @@ class _StylistHomePageState extends State<StylistHomePage> {
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Token: ${_token ?? ''}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(color: Colors.black54),
-                                ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 12),
                                 _buildSyncStatus(context),
                               ],
                             ),
