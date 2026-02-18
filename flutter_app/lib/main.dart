@@ -630,59 +630,88 @@ class _StylistHomePageState extends State<StylistHomePage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                isCompact
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Welcome, $_stylistName',
-                            style: GoogleFonts.playfairDisplay(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w600,
+                Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(largeRadius),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                      width: 1,
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: defaultPadding,
+                    vertical: defaultPadding,
+                  ),
+                  child: isCompact
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Welcome, $_stylistName',
+                              style: GoogleFonts.playfairDisplay(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildSyncStatus(context),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: _logout,
-                                icon: const Icon(Icons.logout),
-                                label: const Text('Logout'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      )
-                    : Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  'Welcome, $_stylistName',
-                                  style: GoogleFonts.playfairDisplay(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w600,
+                                Expanded(
+                                  child: _buildSyncStatus(context),
+                                ),
+                                const SizedBox(width: 12),
+                                ElevatedButton.icon(
+                                  onPressed: _logout,
+                                  icon: const Icon(Icons.logout),
+                                  label: const Text('Logout'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(primaryColorSeed),
+                                    foregroundColor: const Color(darkGray),
                                   ),
                                 ),
-                                const SizedBox(height: 12),
-                                _buildSyncStatus(context),
                               ],
                             ),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: _logout,
-                            icon: const Icon(Icons.logout),
-                            label: const Text('Logout'),
-                          ),
-                        ],
-                      ),
-                const SizedBox(height: 20),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Welcome, $_stylistName',
+                                    style: GoogleFonts.playfairDisplay(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _buildSyncStatus(context),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            ElevatedButton.icon(
+                              onPressed: _logout,
+                              icon: const Icon(Icons.logout),
+                              label: const Text('Logout'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    const Color(primaryColorSeed),
+                                foregroundColor: const Color(darkGray),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+                const SizedBox(height: 24),
                 if (isCompact)
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -916,8 +945,11 @@ class _StylistHomePageState extends State<StylistHomePage> {
           label,
           style: Theme.of(context)
               .textTheme
-              .bodySmall
-              ?.copyWith(color: Colors.black54),
+              .bodyMedium
+              ?.copyWith(
+                color: Colors.black87,
+                fontWeight: FontWeight.w500,
+              ),
         ),
         if (_isRefreshing)
           const SizedBox(
