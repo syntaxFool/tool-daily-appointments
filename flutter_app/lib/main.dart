@@ -642,75 +642,39 @@ class _StylistHomePageState extends State<StylistHomePage> {
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: defaultPadding,
-                    vertical: defaultPadding,
+                    vertical: 16,
                   ),
-                  child: isCompact
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Welcome, $_stylistName',
-                              style: GoogleFonts.playfairDisplay(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: _buildSyncStatus(context),
-                                ),
-                                const SizedBox(width: 12),
-                                ElevatedButton.icon(
-                                  onPressed: _logout,
-                                  icon: const Icon(Icons.logout),
-                                  label: const Text('Logout'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(primaryColorSeed),
-                                    foregroundColor: const Color(darkGray),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        )
-                      : Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Welcome, $_stylistName',
-                                    style: GoogleFonts.playfairDisplay(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _buildSyncStatus(context),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 20),
-                            ElevatedButton.icon(
-                              onPressed: _logout,
-                              icon: const Icon(Icons.logout),
-                              label: const Text('Logout'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    const Color(primaryColorSeed),
-                                foregroundColor: const Color(darkGray),
-                              ),
-                            ),
-                          ],
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Welcome, $_stylistName',
+                          style: GoogleFonts.playfairDisplay(
+                            fontSize: isCompact ? 22 : 26,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
+                      ),
+                      const SizedBox(width: 16),
+                      _buildSyncStatus(context),
+                      const SizedBox(width: 16),
+                      ElevatedButton.icon(
+                        onPressed: _logout,
+                        icon: const Icon(Icons.logout),
+                        label: const Text('Logout'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(primaryColorSeed),
+                          foregroundColor: const Color(darkGray),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 24),
                 _buildCollapsibleFilters(context, isCompact),
@@ -805,23 +769,26 @@ class _StylistHomePageState extends State<StylistHomePage> {
 
     return Column(
       children: [
-        // Filter icon buttons
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
+        // Filter icon buttons - always 4 in one row
+        Row(
           children: List.generate(4, (index) {
             final isExpanded = _expandedFilterIndex == index;
             final filter = filters[index];
-            return FilterIconButton(
-              icon: filter['icon'] as IconData,
-              label: filter['label'] as String,
-              isExpanded: isExpanded,
-              onPressed: () {
-                setState(() {
-                  _expandedFilterIndex =
-                      isExpanded ? null : index;
-                });
-              },
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: FilterIconButton(
+                  icon: filter['icon'] as IconData,
+                  label: filter['label'] as String,
+                  isExpanded: isExpanded,
+                  onPressed: () {
+                    setState(() {
+                      _expandedFilterIndex =
+                          isExpanded ? null : index;
+                    });
+                  },
+                ),
+              ),
             );
           }),
         ),
@@ -913,35 +880,29 @@ class _StylistHomePageState extends State<StylistHomePage> {
   Widget _buildSyncStatus(BuildContext context) {
     final label = _lastSync == null
         ? 'Last sync: never'
-        : 'Last sync: ${DateFormat('MMM d, yyyy HH:mm').format(_lastSync!)}';
+        : 'Last sync: ${DateFormat('MMM dd, HH:mm').format(_lastSync!)}';
 
-    return Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           label,
           style: Theme.of(context)
               .textTheme
-              .bodyMedium
+              .bodySmall
               ?.copyWith(
                 color: Colors.black87,
                 fontWeight: FontWeight.w500,
               ),
         ),
-        if (_isRefreshing)
+        if (_isRefreshing) ...[
+          const SizedBox(width: 8),
           const SizedBox(
-            height: 16,
-            width: 16,
+            height: 14,
+            width: 14,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-        if (_lastErrorDetail != null && _lastErrorDetail!.isNotEmpty)
-          TextButton.icon(
-            onPressed: _retrySync,
-            icon: const Icon(Icons.refresh, size: 18),
-            label: const Text('Retry sync'),
-          ),
+        ],
       ],
     );
   }
