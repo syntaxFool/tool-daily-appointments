@@ -645,37 +645,39 @@ class _StylistHomePageState extends State<StylistHomePage> {
                     vertical: 12,
                   ),
                   child: isCompact
-                      ? Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.center,
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Text(
-                                'Welcome, $_stylistName',
-                                style: GoogleFonts.playfairDisplay(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                            Text(
+                              'Welcome, $_stylistName',
+                              style: GoogleFonts.playfairDisplay(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(width: 8),
-                            _buildSyncStatus(context),
-                            const SizedBox(width: 8),
-                            ElevatedButton.icon(
-                              onPressed: _logout,
-                              icon: const Icon(Icons.logout, size: 14),
-                              label: const Text('Logout'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(primaryColorSeed),
-                                foregroundColor: const Color(darkGray),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                _buildSyncStatus(context),
+                                ElevatedButton.icon(
+                                  onPressed: _logout,
+                                  icon: const Icon(Icons.logout, size: 14),
+                                  label: const Text('Logout'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(primaryColorSeed),
+                                    foregroundColor: const Color(darkGray),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    textStyle: const TextStyle(fontSize: 11),
+                                  ),
                                 ),
-                                textStyle: const TextStyle(fontSize: 11),
-                              ),
+                              ],
                             ),
                           ],
                         )
