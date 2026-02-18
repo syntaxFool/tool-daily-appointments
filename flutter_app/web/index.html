@@ -37,11 +37,22 @@
   <script>
     // Suppress autofill overlay DOM errors that don't affect functionality
     window.addEventListener('error', (event) => {
-      if (event.message && event.message.includes('insertBefore')) {
+      if (event.message && (event.message.includes('insertBefore') || event.message.includes('NotFoundError'))) {
         event.preventDefault();
-        console.log('Autofill overlay harmless error suppressed');
       }
     }, true);
+
+    // Suppress unhandled promise rejections from autofill overlays
+    window.addEventListener('unhandledrejection', (event) => {
+      if (event.reason && (
+        event.reason.message?.includes('insertBefore') || 
+        event.reason.message?.includes('NotFoundError') ||
+        event.reason.toString?.().includes('insertBefore') ||
+        event.reason.toString?.().includes('NotFoundError')
+      )) {
+        event.preventDefault();
+      }
+    });
 
     // Make Flutter inputs resistant to autofill interference
     document.addEventListener('DOMContentLoaded', () => {
