@@ -87,6 +87,7 @@ class _StylistHomePageState extends State<StylistHomePage> {
   int _sortColumnIndex = 0;
   bool _sortAscending = true;
   bool _isRefreshing = false;
+  int? _expandedFilterIndex; // 0=search, 1=month, 2=date, 3=export
 
   @override
   void initState() {
@@ -712,144 +713,7 @@ class _StylistHomePageState extends State<StylistHomePage> {
                         ),
                 ),
                 const SizedBox(height: 24),
-                if (isCompact)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextField(
-                        controller: _searchController,
-                        decoration: const InputDecoration(
-                          labelText: 'Search',
-                          hintText: 'Customer or invoice number',
-                          prefixIcon: Icon(Icons.search),
-                        ),
-                        onChanged: _updateSearch,
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String?>(
-                        value: _selectedMonth,
-                        decoration:
-                            const InputDecoration(labelText: 'Month'),
-                        items: [
-                          const DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text('All months'),
-                          ),
-                          ..._availableMonths.map(
-                            (month) => DropdownMenuItem<String?>(
-                              value: month,
-                              child: Text(month),
-                            ),
-                          ),
-                        ],
-                        onChanged: _applyMonthFilter,
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: _selectedMonth != null
-                            ? null
-                            : _pickDateRange,
-                        icon: const Icon(Icons.date_range),
-                        label: Text(
-                          formatDateRangeLabel(_startDate, _endDate),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 14,
-                          ),
-                        ),
-                      ),
-                      if (_startDate != null || _endDate != null) ...[
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: _clearDateFilters,
-                            child: const Text('Clear dates'),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        onPressed: _exportCsv,
-                        icon: const Icon(Icons.download),
-                        label: const Text('Export CSV'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(primaryColorSeed),
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 12,
-                    children: [
-                      SizedBox(
-                        width: 260,
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: const InputDecoration(
-                            labelText: 'Search',
-                            hintText: 'Customer or invoice',
-                            prefixIcon: Icon(Icons.search),
-                          ),
-                          onChanged: _updateSearch,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 220,
-                        child: DropdownButtonFormField<String?>(
-                          value: _selectedMonth,
-                          decoration:
-                              const InputDecoration(labelText: 'Month'),
-                          items: [
-                            const DropdownMenuItem<String?>(
-                              value: null,
-                              child: Text('All months'),
-                            ),
-                            ..._availableMonths.map(
-                              (month) => DropdownMenuItem<String?>(
-                                value: month,
-                                child: Text(month),
-                              ),
-                            ),
-                          ],
-                          onChanged: _applyMonthFilter,
-                        ),
-                      ),
-                      DateButton(
-                        label: 'From',
-                        date: _startDate,
-                        onPressed: _selectedMonth != null
-                            ? null
-                            : () => _pickDateRange(),
-                      ),
-                      DateButton(
-                        label: 'To',
-                        date: _endDate,
-                        onPressed: _selectedMonth != null
-                            ? null
-                            : () => _pickDateRange(),
-                      ),
-                      if (_startDate != null || _endDate != null)
-                        TextButton(
-                          onPressed: _clearDateFilters,
-                          child: const Text('Clear dates'),
-                        ),
-                      ElevatedButton.icon(
-                        onPressed: _exportCsv,
-                        icon: const Icon(Icons.download),
-                        label: const Text('Export CSV'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(primaryColorSeed),
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
+                _buildCollapsibleFilters(context, isCompact),
                 const SizedBox(height: 20),
                 _buildSummaryTiles(context, isCompact),
                 const SizedBox(height: 16),
@@ -929,6 +793,121 @@ class _StylistHomePageState extends State<StylistHomePage> {
         ),
       ],
     );
+  }
+
+  Widget _buildCollapsibleFilters(BuildContext context, bool isCompact) {
+    final filters = [
+      {'icon': Icons.search, 'label': 'Search', 'index': 0},
+      {'icon': Icons.calendar_month, 'label': 'Month', 'index': 1},
+      {'icon': Icons.date_range, 'label': 'Dates', 'index': 2},
+      {'icon': Icons.download, 'label': 'Export', 'index': 3},
+    ];
+
+    return Column(
+      children: [
+        // Filter icon buttons
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: List.generate(4, (index) {
+            final isExpanded = _expandedFilterIndex == index;
+            final filter = filters[index];
+            return FilterIconButton(
+              icon: filter['icon'] as IconData,
+              label: filter['label'] as String,
+              isExpanded: isExpanded,
+              onPressed: () {
+                setState(() {
+                  _expandedFilterIndex =
+                      isExpanded ? null : index;
+                });
+              },
+            );
+          }),
+        ),
+        if (_expandedFilterIndex != null) ...[
+          const SizedBox(height: 16),
+          // Expanded filter content
+          _buildExpandedFilter(context, _expandedFilterIndex!,
+              isCompact),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildExpandedFilter(BuildContext context, int index,
+      bool isCompact) {
+    switch (index) {
+      case 0: // Search
+        return TextField(
+          controller: _searchController,
+          decoration: const InputDecoration(
+            labelText: 'Search',
+            hintText: 'Customer or invoice number',
+            prefixIcon: Icon(Icons.search),
+          ),
+          onChanged: _updateSearch,
+        );
+      case 1: // Month
+        return DropdownButtonFormField<String?>(
+          value: _selectedMonth,
+          decoration: const InputDecoration(labelText: 'Select Month'),
+          items: [
+            const DropdownMenuItem<String?>(
+              value: null,
+              child: Text('All months'),
+            ),
+            ..._availableMonths.map(
+              (month) => DropdownMenuItem<String?>(
+                value: month,
+                child: Text(month),
+              ),
+            ),
+          ],
+          onChanged: _applyMonthFilter,
+        );
+      case 2: // Date range
+        return Column(
+          children: [
+            OutlinedButton.icon(
+              onPressed: _selectedMonth != null ? null : _pickDateRange,
+              icon: const Icon(Icons.date_range),
+              label: Text(
+                formatDateRangeLabel(_startDate, _endDate),
+              ),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 14,
+                ),
+              ),
+            ),
+            if (_startDate != null || _endDate != null) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _clearDateFilters,
+                  child: const Text('Clear dates'),
+                ),
+              ),
+            ],
+          ],
+        );
+      case 3: // Export
+        return ElevatedButton.icon(
+          onPressed: _exportCsv,
+          icon: const Icon(Icons.download),
+          label: const Text('Export CSV'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(primaryColorSeed),
+            foregroundColor: const Color(darkGray),
+            minimumSize: const Size.fromHeight(50),
+          ),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   Widget _buildSyncStatus(BuildContext context) {

@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/app_constants.dart';
 
+enum MessageTone { error, info }
+
 /// Displays error or info message with optional details
 class MessageBanner extends StatelessWidget {
   const MessageBanner({
@@ -199,4 +201,68 @@ class Orb extends StatelessWidget {
   }
 }
 
-enum MessageTone { error, info }
+/// Expandable filter button that looks like an app icon
+class FilterIconButton extends StatelessWidget {
+  const FilterIconButton({
+    required this.icon,
+    required this.label,
+    required this.isExpanded,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool isExpanded;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                color: isExpanded
+                    ? const Color(primaryColorSeed).withOpacity(0.2)
+                    : Colors.transparent,
+                border: Border.all(
+                  color: isExpanded
+                      ? const Color(primaryColorSeed)
+                      : const Color(lightGray),
+                  width: isExpanded ? 2 : 1.5,
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                icon,
+                color: isExpanded
+                    ? const Color(primaryColorSeed)
+                    : const Color(darkGray),
+                size: 32,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: isExpanded
+                ? const Color(primaryColorSeed)
+                : const Color(darkGray),
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+}
+
