@@ -552,29 +552,31 @@ class _StylistHomePageState extends State<StylistHomePage> {
                         color: Colors.white),
                   ),
                   const SizedBox(width: 14),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Stylist Reports',
-                        style: GoogleFonts.playfairDisplay(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Stylist Reports',
+                          style: GoogleFonts.playfairDisplay(
+                            fontSize: isCompact ? 20 : 22,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Enter your token to continue',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: Colors.black54),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          'Enter your token to continue',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: Colors.black54),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               if (_errorMessage != null)
                 MessageBanner(
                   text: _errorMessage!,
@@ -589,13 +591,25 @@ class _StylistHomePageState extends State<StylistHomePage> {
                 decoration: const InputDecoration(
                   labelText: 'Access token',
                   hintText: 'Enter your token',
+                  prefixIcon: Icon(Icons.key),
                 ),
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _login(),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 8),
+              Text(
+                'Token is case sensitive.',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.black54),
+              ),
+              const SizedBox(height: 18),
               ElevatedButton(
                 onPressed: _isLoading ? null : _login,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
                 child: _isLoading
                     ? const SizedBox(
                         height: 20,
