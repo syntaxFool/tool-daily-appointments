@@ -645,41 +645,38 @@ class _StylistHomePageState extends State<StylistHomePage> {
                     vertical: 12,
                   ),
                   child: isCompact
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'Welcome, $_stylistName',
-                                    style: GoogleFonts.playfairDisplay(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                            Expanded(
+                              child: Text(
+                                'Welcome, $_stylistName',
+                                style: GoogleFonts.playfairDisplay(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                                const SizedBox(width: 8),
-                                ElevatedButton.icon(
-                                  onPressed: _logout,
-                                  icon: const Icon(Icons.logout, size: 16),
-                                  label: const Text('Logout'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(primaryColorSeed),
-                                    foregroundColor: const Color(darkGray),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    textStyle: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                              ],
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(width: 8),
                             _buildSyncStatus(context),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              onPressed: _logout,
+                              icon: const Icon(Icons.logout, size: 14),
+                              label: const Text('Logout'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(primaryColorSeed),
+                                foregroundColor: const Color(darkGray),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                textStyle: const TextStyle(fontSize: 11),
+                              ),
+                            ),
                           ],
                         )
                       : Row(
@@ -923,9 +920,12 @@ class _StylistHomePageState extends State<StylistHomePage> {
   }
 
   Widget _buildSyncStatus(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < compactLayoutWidthThreshold;
     final label = _lastSync == null
-        ? 'Last sync: never'
-        : 'Last sync: ${DateFormat('MMM dd, HH:mm').format(_lastSync!)}';
+        ? (isCompact ? 'Never synced' : 'Last sync: never')
+        : (isCompact
+            ? 'Synced: ${DateFormat('HH:mm').format(_lastSync!)}'
+            : 'Last sync: ${DateFormat('MMM dd, HH:mm').format(_lastSync!)}');
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -936,16 +936,17 @@ class _StylistHomePageState extends State<StylistHomePage> {
               .textTheme
               .bodySmall
               ?.copyWith(
+                fontSize: isCompact ? 11 : 13,
                 color: Colors.black87,
                 fontWeight: FontWeight.w500,
               ),
         ),
         if (_isRefreshing) ...[
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           const SizedBox(
-            height: 14,
-            width: 14,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            height: 12,
+            width: 12,
+            child: CircularProgressIndicator(strokeWidth: 1.5),
           ),
         ],
       ],
